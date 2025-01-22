@@ -1,6 +1,10 @@
-# Ignore Python virtual environment folder
+# Ignore Python virtual environment folder and environment variables
 .venv/
 venv/
+.venv
+.env
+env
+venv
 
 # Ignore PyTorch model files
 *.pt
