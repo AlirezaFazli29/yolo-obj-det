@@ -2,10 +2,12 @@ yolo_obj_det/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py             
-│   └── utils.py        
-├── models/             
-│   ├── ---.pt      
-│   └── ---.pt      
+│   ├── utils.py
+│   ├── model_handler.py
+│   └── models/ 
+│       ├── ---.pt      
+│       └── ---.pt
+├── test.ipynb
 ├── Dockerfile          
 ├── docker-compose.yml  
 ├── requirements.txt    
