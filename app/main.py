@@ -12,7 +12,10 @@ from fastapi.responses import (
     )
 from model_handler import YoloType
 from ultralytics import YOLO
-from utils import process_yolo_result
+from utils import (
+    process_yolo_result,
+    JSONRequest
+)
 from PIL import Image
 import base64
 import uvicorn
@@ -119,6 +122,64 @@ async def obj_process_plot(
         StreamingResponse: An image response containing the visualized detection result.
     """
     image = Image.open(file.file)
+    res = yolo_coco(image, conf=conf_threshold, verbose=False)
+    result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+    buffer = io.BytesIO()
+    result_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
+
+
+@app.post("/obj_process_base64")
+async def obj_process_base64(request: JSONRequest):
+    """
+    Process an object detection request using a base64-encoded image.
+
+    This function accepts a JSON input containing a base64-encoded image and a 
+    confidence threshold. It decodes the image, performs object detection using 
+    the YOLO model, and processes the results into a structured JSON response.
+
+    Args:
+        request (JSONRequest): A JSON payload containing:
+            - base64_string (str): The base64-encoded image data.
+            - conf_threshold (float): The confidence threshold for object detection.
+
+    Returns:
+        JSONResponse: A JSON response with the processed object detection results. 
+                      The response structure contains object types, counts, and 
+                      bounding box data.
+    """
+    image_data = base64.b64decode(request.base64_string)
+    image = Image.open(io.BytesIO(image_data))
+    conf_threshold = request.conf_threshold
+    res = yolo_coco(image, conf=conf_threshold, verbose=False)
+    response = process_yolo_result(res[0])
+    return response
+
+
+@app.post("/obj_process_plot_base64")
+async def obj_process_plot_base64(request: JSONRequest):
+    """
+    Process an object detection request and return a plotted image as a PNG.
+
+    This endpoint accepts a JSON input containing a base64-encoded image and a 
+    confidence threshold. It decodes the image, performs object detection using 
+    the YOLO model, plots the detection results on the image, and returns the 
+    plotted image as a streaming response in PNG format.
+
+    Args:
+        request (JSONRequest): A JSON payload containing:
+            - base64_string (str): The base64-encoded image data.
+            - conf_threshold (float): The confidence threshold for object detection.
+
+    Returns:
+        StreamingResponse: A streaming response containing the plotted image in 
+                           PNG format. The image includes bounding boxes and 
+                           annotations for detected objects.
+    """
+    image_data = base64.b64decode(request.base64_string)
+    image = Image.open(io.BytesIO(image_data))
+    conf_threshold = request.conf_threshold
     res = yolo_coco(image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()

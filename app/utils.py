@@ -1,4 +1,5 @@
 from ultralytics.engine.results import Results
+from pydantic import BaseModel
 
 
 def process_yolo_result(result: Results) -> dict:
@@ -39,3 +40,8 @@ def process_yolo_result(result: Results) -> dict:
             "error": 404,
             "message": "No object detected"
         }
+
+
+class JSONRequest(BaseModel):
+    base64_string: str
+    conf_threshold: float
