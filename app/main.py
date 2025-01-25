@@ -1,11 +1,22 @@
-from fastapi import FastAPI, Request, File, UploadFile, Form, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import (
+        FastAPI, 
+        Request, 
+        File, 
+        UploadFile, 
+        Form, 
+        HTTPException
+    )
+from fastapi.responses import (
+        JSONResponse,
+        StreamingResponse                    
+    )
 from model_handler import YoloType
 from ultralytics import YOLO
 from utils import process_yolo_result
 from PIL import Image
 import base64
 import uvicorn
+import io
 
 
 app = FastAPI(title="object detection")
@@ -64,12 +75,56 @@ async def obj_process(
     file: UploadFile = File(...),
     conf_threshold: float = Form(...),
 ):
-    
+    """
+    Perform object detection on an uploaded image file.
+
+    This function processes an uploaded image file using a YOLO object detection model
+    and applies the specified confidence threshold for detection. It returns the processed 
+    result in a structured format.
+
+    Args:
+        file (UploadFile): The uploaded image file to be processed for object detection.
+        conf_threshold (float): The confidence threshold for the YOLO model to filter detections.
+                                Values should typically be between 0 and 1.
+
+    Returns:
+        JSONResponse: The processed YOLO inference result as a structured JSON response.
+
+    Raises:
+        HTTPException: If the uploaded file is not a valid image or cannot be processed.
+    """
     image = Image.open(file.file)
     res = yolo_coco(image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
-
     return response
+
+
+@app.post("/obj_process_plot")
+async def obj_process_plot(
+    file: UploadFile = File(...),
+    conf_threshold: float = Form(...),
+):
+    """
+    Perform object detection on an uploaded image and return a visualized result.
+
+    This endpoint processes an uploaded image using a YOLO object detection model,
+    applies the specified confidence threshold, and returns the visualized detection 
+    result as a streaming response (image).
+
+    Args:
+        file (UploadFile): The uploaded image file to be processed.
+        conf_threshold (float): The confidence threshold for filtering detections.
+
+    Returns:
+        StreamingResponse: An image response containing the visualized detection result.
+    """
+    image = Image.open(file.file)
+    res = yolo_coco(image, conf=conf_threshold, verbose=False)
+    result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+    buffer = io.BytesIO()
+    result_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
 
 
 uvicorn.run(app, host="0.0.0.0", port=8080)
