@@ -28,7 +28,7 @@ yolo_coco = YOLO(YoloType.Pretrained.yolo11n.value)
 # yolo_gun = YOLO(YoloType.Custom.Firearm_best.value)
 
 
-@app.get("/")
+@app.get("/", tags=["Object Detection"])
 async def root():
     """
     Root endpoint for the service.
@@ -44,7 +44,7 @@ async def root():
     )
 
 
-@app.post("/file-to-base64")
+@app.post("/file-to-base64", tags=["Object Detection"])
 async def file_to_base64(file: UploadFile):
     """
     Convert an uploaded file to a base64-encoded string.
@@ -73,7 +73,7 @@ async def file_to_base64(file: UploadFile):
     )
 
 
-@app.post("/obj_process")
+@app.post("/obj_process", tags=["Object Detection"])
 async def obj_process(
     file: UploadFile = File(...),
     conf_threshold: float = Form(...),
@@ -102,7 +102,7 @@ async def obj_process(
     return response
 
 
-@app.post("/obj_process_plot")
+@app.post("/obj_process_plot", tags=["Object Detection"])
 async def obj_process_plot(
     file: UploadFile = File(...),
     conf_threshold: float = Form(...),
@@ -130,7 +130,7 @@ async def obj_process_plot(
     return StreamingResponse(buffer, media_type="image/png")
 
 
-@app.post("/obj_process_base64")
+@app.post("/obj_process_base64", tags=["Object Detection"])
 async def obj_process_base64(request: JSONRequest):
     """
     Process an object detection request using a base64-encoded image.
@@ -157,7 +157,7 @@ async def obj_process_base64(request: JSONRequest):
     return response
 
 
-@app.post("/obj_process_plot_base64")
+@app.post("/obj_process_plot_base64", tags=["Object Detection"])
 async def obj_process_plot_base64(request: JSONRequest):
     """
     Process an object detection request and return a plotted image as a PNG.
