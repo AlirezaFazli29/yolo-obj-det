@@ -26,5 +26,5 @@ class YoloType():
         yolo11x = "yolo11x.pt"
 
     class Custom(Enum):
-        Firearm_last = "models/last(Firearm).pt"
-        Firearm_best = "models/best(Firearm).pt" 
+        Firearm_last = "models/last_Firearm.pt"
+        Firearm_best = "models/best_Firearm.pt" 
