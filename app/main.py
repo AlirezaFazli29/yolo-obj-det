@@ -1,37 +1,51 @@
 from fastapi import (
-        FastAPI, 
-        Request, 
-        File, 
-        UploadFile, 
-        Form, 
-        HTTPException
-    )
+    FastAPI,
+    File, 
+    UploadFile, 
+    Form, 
+    HTTPException
+)
 from fastapi.responses import (
-        JSONResponse,
-        StreamingResponse                    
-    )
+    JSONResponse,
+    StreamingResponse                    
+)
 from model_handler import YoloType
 from ultralytics import YOLO
 from utils import (
     process_yolo_result,
     JSONRequest
 )
+from contextlib import asynccontextmanager
 from PIL import Image
 import base64
 import uvicorn
 import io
 import os
 
+my_models = {}
 
-app = FastAPI(title="object detection")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yolo_coco = YOLO(YoloType.Pretrained.yolo11n.value)
+    my_models["coco"] = yolo_coco
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    gun_pth = os.path.join(base_dir, YoloType.Custom.Firearm_best.value)
+    yolo_gun = YOLO(gun_pth)
+    my_models["gun"] = yolo_gun
+    yield
+    my_models.clear()
 
-yolo_coco = YOLO(YoloType.Pretrained.yolo11n.value)
-base_dir = os.path.dirname(os.path.abspath(__file__))
-gun_pth = os.path.join(base_dir, YoloType.Custom.Firearm_best.value)
-yolo_gun = YOLO(gun_pth)
+
+app = FastAPI(
+    title="object detection",
+    lifespan=lifespan
+)
 
 
-@app.get("/", tags=["Object Detection", "Firearm Classification"])
+@app.get(
+    path="/", 
+    tags=["Object Detection", "Firearm Classification", "Model Selection"]
+)
 async def root():
     """
     Root endpoint for the service.
@@ -100,7 +114,7 @@ async def obj_process(
         HTTPException: If the uploaded file is not a valid image or cannot be processed.
     """
     image = Image.open(file.file)
-    res = yolo_coco(image, conf=conf_threshold, verbose=False)
+    res = my_models["coco"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
     return response
 
@@ -130,7 +144,7 @@ async def gun_process(
         HTTPException: If the uploaded file is not a valid image or cannot be processed.
     """
     image = Image.open(file.file)
-    res = yolo_gun(image, conf=conf_threshold, verbose=False)
+    res = my_models["gun"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
     return response
 
@@ -158,7 +172,7 @@ async def obj_process_plot(
         HTTPException: If the uploaded file is not a valid image or cannot be processed.
     """
     image = Image.open(file.file)
-    res = yolo_coco(image, conf=conf_threshold, verbose=False)
+    res = my_models["coco"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
     result_pil.save(buffer, format="PNG")
@@ -190,7 +204,7 @@ async def gun_process_plot(
         HTTPException: If the uploaded file is not a valid image or cannot be processed.
     """
     image = Image.open(file.file)
-    res = yolo_gun(image, conf=conf_threshold, verbose=False)
+    res = my_models["gun"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
     result_pil.save(buffer, format="PNG")
@@ -224,7 +238,7 @@ async def obj_process_base64(request: JSONRequest):
     image_data = base64.b64decode(request.base64_string)
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
-    res = yolo_coco(image, conf=conf_threshold, verbose=False)
+    res = my_models["coco"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
     return response
 
@@ -256,7 +270,7 @@ async def gun_process_base64(request: JSONRequest):
     image_data = base64.b64decode(request.base64_string)
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
-    res = yolo_gun(image, conf=conf_threshold, verbose=False)
+    res = my_models["gun"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
     return response
 
@@ -288,7 +302,7 @@ async def obj_process_plot_base64(request: JSONRequest):
     image_data = base64.b64decode(request.base64_string)
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
-    res = yolo_coco(image, conf=conf_threshold, verbose=False)
+    res = my_models["coco"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
     result_pil.save(buffer, format="PNG")
@@ -321,7 +335,7 @@ async def gun_process_plot_base64(request: JSONRequest):
     image_data = base64.b64decode(request.base64_string)
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
-    res = yolo_gun(image, conf=conf_threshold, verbose=False)
+    res = my_models["gun"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
     result_pil.save(buffer, format="PNG")
