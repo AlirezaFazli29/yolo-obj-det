@@ -3,17 +3,18 @@ from fastapi import (
     File, 
     UploadFile, 
     Form, 
-    HTTPException
+    HTTPException,
 )
 from fastapi.responses import (
     JSONResponse,
-    StreamingResponse                    
+    StreamingResponse,
 )
 from model_handler import YoloType
 from ultralytics import YOLO
 from utils import (
     process_yolo_result,
-    JSONRequest
+    JSONRequest,
+    ModelJSONRequest,
 )
 from contextlib import asynccontextmanager
 from PIL import Image
@@ -411,6 +412,71 @@ async def select_gun(
     return JSONResponse(
         {"message": f"Model {model_type.name} is selected"}
     )
+
+
+@app.get("/show_model_types", tags=["Model Selection"])
+async def show_model_types():
+    coco_types = {
+        model_type.name: model_type.value for model_type in YoloType.Pretrained
+    }
+    gun_type =  {
+        model_type.name: model_type.value for model_type in YoloType.Custom
+    }
+    return JSONResponse(
+        {
+            "Object Detection Models": coco_types,
+            "Firearm Classification Models": gun_type
+        }
+    )
+
+
+@app.post("/select_coco_models_json_request", tags=["Model Selection"])
+async def select_coco_models_json_request(
+    request: ModelJSONRequest
+):
+    """
+    Endpoint to select and load a COCO model based on a JSON request.
+
+    This endpoint allows the user to dynamically select a COCO model 
+    by sending the model type in a JSON payload.
+
+    Args:
+        request (ModelJSONRequest): The JSON request body containing the model type to load.
+
+    Returns:
+        JSONResponse: A JSON response confirming the selected model.
+    """
+    global my_models
+    my_models["coco"] = YOLO(request.model_type)
+    return JSONResponse(
+        {"message": f"Model from path {request.model_type} is selected"}
+    )
+
+
+@app.post("/select_gun_models_json_request", tags=["Model Selection"])
+async def select_gun_json_request(
+    request: ModelJSONRequest
+):
+    """
+    Endpoint to select and load a firearm classification model based on a JSON request.
+
+    This endpoint enables dynamic selection of a firearm classification model 
+    by specifying the model type in a JSON payload.
+
+    Args:
+        request (ModelJSONRequest): The JSON request body containing the model type to load.
+
+    Returns:
+        JSONResponse: A JSON response confirming the selected model.
+    """
+    global my_models
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    gun_pth = os.path.join(base_dir, request.model_type)
+    my_models["gun"] = YOLO(gun_pth)
+    return JSONResponse(
+        {"message": f"Model from path {request.model_type} is selected"}
+    )
+
 
 
 uvicorn.run(app, host="0.0.0.0", port=8080)

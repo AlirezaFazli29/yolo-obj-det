@@ -45,3 +45,7 @@ def process_yolo_result(result: Results) -> dict:
 class JSONRequest(BaseModel):
     base64_string: str
     conf_threshold: float
+
+
+class ModelJSONRequest(BaseModel):
+    model_type: str
