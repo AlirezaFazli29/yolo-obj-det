@@ -22,6 +22,7 @@ import uvicorn
 import io
 import os
 
+
 my_models = {}
 
 @asynccontextmanager
@@ -360,6 +361,56 @@ async def gun_process_plot_base64(request: JSONRequest):
     result_pil.save(buffer, format="PNG")
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="image/png")
+
+
+@app.post("/select_coco_models", tags=["Model Selection"])
+async def select_coco(
+    model_type: YoloType.Pretrained = Form(...)
+):
+    """
+    Endpoint to select and load a COCO model.
+
+    This endpoint allows the user to dynamically select a COCO model 
+    from the predefined YOLO pretrained models.
+
+    Args:
+        model_type (YoloType.Pretrained): The type of COCO model to load, 
+                                          provided as a form input.
+
+    Returns:
+        JSONResponse: A JSON response confirming the selected model.
+    """
+    global my_models
+    my_models["coco"] = YOLO(model_type.value)
+    return JSONResponse(
+        {"message": f"Model {model_type.name} is selected"}
+    )
+
+
+@app.post("/select_gun_models", tags=["Model Selection"])
+async def select_gun(
+    model_type: YoloType.Custom = Form(...)
+):
+    """
+    Endpoint to select and load a firearm classification model.
+
+    This endpoint allows the user to dynamically select a custom firearm 
+    classification model. It loads the model based on the provided configuration.
+
+    Args:
+        model_type (YoloType.Custom): The type of firearm classification model to
+                                      load, provided as a form input.
+
+    Returns:
+        JSONResponse: A JSON response confirming the selected model.
+    """
+    global my_models
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    gun_pth = os.path.join(base_dir, YoloType.Custom.Firearm_best.value)
+    my_models["gun"] = YOLO(gun_pth)
+    return JSONResponse(
+        {"message": f"Model {model_type.name} is selected"}
+    )
 
 
 uvicorn.run(app, host="0.0.0.0", port=8080)
