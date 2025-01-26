@@ -26,6 +26,25 @@ my_models = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for the FastAPI application.
+
+    This function initializes and manages the lifecycle of YOLO models required 
+    by the application. Models are loaded at the start of the application and 
+    cleaned up upon shutdown.
+
+    Args:
+        app (FastAPI): The FastAPI application instance.
+
+    Steps:
+        1. Load a pretrained YOLO model for COCO dataset and store it in a global model dictionary.
+        2. Load a custom YOLO firearm detection model from a specified path.
+        3. Provide access to the models during the application's lifespan.
+        4. Clear the models from memory during cleanup.
+
+    Yields:
+        None: Allows the application to use the models while the context is active.
+    """
     yolo_coco = YOLO(YoloType.Pretrained.yolo11n.value)
     my_models["coco"] = yolo_coco
     base_dir = os.path.dirname(os.path.abspath(__file__))
