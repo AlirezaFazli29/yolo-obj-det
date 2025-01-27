@@ -47,5 +47,11 @@ class JSONRequest(BaseModel):
     conf_threshold: float
 
 
+class JSONRequest2(BaseModel):
+    base64_string: str
+    conf_threshold: float
+    return_base64_result: bool
+
+
 class ModelJSONRequest(BaseModel):
     model_type: str
