@@ -259,6 +259,7 @@ async def obj_process_n_return_result(
     image = Image.open(file.file)
     res = my_models["coco"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
+    response = {"data": response}
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
@@ -295,6 +296,7 @@ async def gun_process_n_return_result(
     image = Image.open(file.file)
     res = my_models["gun"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
+    response = {"data": response}
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
@@ -460,6 +462,7 @@ async def obj_process_n_return_result_base64(request: JSONRequest2):
     conf_threshold = request.conf_threshold
     res = my_models["coco"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
+    response = {"data": response}
     return_base64_result = request.return_base64_result
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
@@ -495,6 +498,7 @@ async def gun_process_n_return_result_base64(request: JSONRequest2):
     conf_threshold = request.conf_threshold
     res = my_models["gun"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
+    response = {"data": response}
     return_base64_result = request.return_base64_result
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
@@ -619,5 +623,9 @@ async def select_gun_model_json_request(
         {"message": f"Model from path {request.model_type} is selected"}
     )
 
+
+@app.get("/my_test")
+async def my_test():
+    return JSONResponse([{"test": True}])
 
 uvicorn.run(app, host="0.0.0.0", port=8080)
