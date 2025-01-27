@@ -8,7 +8,7 @@ yolo_obj_det/
 │       ├── ---.pt      
 │       └── ---.pt
 ├── test.ipynb
-├── Dockerfile          
+├── Dockerfile
 ├── docker-compose.yml  
 ├── requirements.txt    
 └── README.md           

@@ -63,3 +63,6 @@ Thumbs.db
 
 # Ignore csv file
 *.csv
+
+# Ignore config files
+*.conf

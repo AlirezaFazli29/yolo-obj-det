@@ -364,7 +364,7 @@ async def gun_process_plot_base64(request: JSONRequest):
     return StreamingResponse(buffer, media_type="image/png")
 
 
-@app.post("/select_coco_models", tags=["Model Selection"])
+@app.post("/select_coco_model", tags=["Model Selection"])
 async def select_coco(
     model_type: YoloType.Pretrained = Form(...)
 ):
@@ -388,7 +388,7 @@ async def select_coco(
     )
 
 
-@app.post("/select_gun_models", tags=["Model Selection"])
+@app.post("/select_gun_model", tags=["Model Selection"])
 async def select_gun(
     model_type: YoloType.Custom = Form(...)
 ):
@@ -430,8 +430,8 @@ async def show_model_types():
     )
 
 
-@app.post("/select_coco_models_json_request", tags=["Model Selection"])
-async def select_coco_models_json_request(
+@app.post("/select_coco_model_json_request", tags=["Model Selection"])
+async def select_coco_model_json_request(
     request: ModelJSONRequest
 ):
     """
@@ -453,8 +453,8 @@ async def select_coco_models_json_request(
     )
 
 
-@app.post("/select_gun_models_json_request", tags=["Model Selection"])
-async def select_gun_json_request(
+@app.post("/select_gun_model_json_request", tags=["Model Selection"])
+async def select_gun_model_json_request(
     request: ModelJSONRequest
 ):
     """
@@ -476,7 +476,6 @@ async def select_gun_json_request(
     return JSONResponse(
         {"message": f"Model from path {request.model_type} is selected"}
     )
-
 
 
 uvicorn.run(app, host="0.0.0.0", port=8080)

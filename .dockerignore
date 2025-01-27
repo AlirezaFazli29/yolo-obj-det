@@ -1,0 +1,60 @@
+# Ignore Python virtual environment folder
+.venv/
+venv/
+env/
+.env/
+
+# Ignore PyTorch model files
+# *.pt
+# *.pth
+# *.pkl
+
+# Ignore image files (training images or generated images)
+*.jpg
+*.jpeg
+*.png
+
+# Ignore datasets
+datasets/
+
+# Ignore training output directories
+runs/
+
+# Ignore Python bytecode files and compiled files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore IDE/editor config files
+.vscode/
+.idea/
+
+# Ignore Jupyter notebook checkpoints if you use them
+.ipynb_checkpoints/
+
+# Ignore operating system files
+.DS_Store
+Thumbs.db
+
+# Ignore cache and temporary files from various tools
+*.log
+*.bak
+*.swp
+*.swo
+*.temp
+
+# Ignore unnecessary archive and compressed files
+*.tar
+*.gz
+*.zip
+*.7z
+
+# Ignore Git-related files and configuration
+.git/
+.gitignore
+
+# Ignore shell files
+*.sh
+
+# Ignore csv files
+*.csv
