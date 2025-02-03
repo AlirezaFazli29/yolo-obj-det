@@ -66,7 +66,11 @@ app = FastAPI(
 
 @app.get(
     path="/", 
-    tags=["Object Detection", "Firearm Classification", "Model Selection"]
+    tags=[
+        "Object Detection",
+        "Firearm Classification",
+        "Model Selection"
+    ]
 )
 async def root():
     """
@@ -623,9 +627,5 @@ async def select_gun_model_json_request(
         {"message": f"Model from path {request.model_type} is selected"}
     )
 
-
-@app.get("/my_test")
-async def my_test():
-    return JSONResponse([{"test": True}])
 
 uvicorn.run(app, host="0.0.0.0", port=8080)
