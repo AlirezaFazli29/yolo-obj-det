@@ -1,6 +1,9 @@
 services:
   obj-det:
-    container_name: my-obj-det 
+    container_name: my-obj-det
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: alirezafazli29/obj-det:dev
     deploy:
       resources:
