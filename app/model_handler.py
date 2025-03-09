@@ -28,3 +28,6 @@ class YoloType():
     class Custom(Enum):
         Firearm_last = "models/last_Firearm.pt"
         Firearm_best = "models/best_Firearm.pt" 
+
+    class sign(Enum):
+        sign_model = "models/sign_model.pt"

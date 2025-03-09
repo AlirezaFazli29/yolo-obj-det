@@ -54,6 +54,9 @@ async def lifespan(app: FastAPI):
     gun_pth = os.path.join(base_dir, YoloType.Custom.Firearm_best.value)
     yolo_gun = YOLO(gun_pth)
     my_models["gun"] = yolo_gun
+    sign_pth = os.path.join(base_dir, YoloType.sign.sign_model.value)
+    yolo_sign = YOLO(sign_pth)
+    my_models["sign"] = yolo_sign
     yield
     my_models.clear()
 
@@ -69,7 +72,8 @@ app = FastAPI(
     tags=[
         "Object Detection",
         "Firearm Classification",
-        "Model Selection"
+        "Sign Detection",
+        "Model Selection",
     ]
 )
 async def root():
@@ -87,7 +91,14 @@ async def root():
     )
 
 
-@app.post("/file-to-base64", tags=["Object Detection", "Firearm Classification"])
+@app.post(
+    "/file-to-base64",
+    tags=[
+        "Object Detection",
+        "Firearm Classification",
+        "Sign Detection",
+    ]
+)
 async def file_to_base64(file: UploadFile):
     """
     Convert an uploaded file to a base64-encoded string.
@@ -175,6 +186,36 @@ async def gun_process(
     return JSONResponse(response)
 
 
+@app.post("/sign_process", tags=["Sign Detection"])
+async def sign_process(
+    file: UploadFile = File(...),
+    conf_threshold: float = Form(...),
+):
+    """
+    Perform sign detection on an uploaded image file.
+
+    This function processes an uploaded image file using a YOLO sign detection model
+    and applies the specified confidence threshold for detection. It returns the processed
+    result in a structured format.
+
+    Args:
+        file (UploadFile): The uploaded image file to be analyzed for sign detection.
+        conf_threshold (float): The confidence threshold for the YOLO model to filter detections.
+                                Values should typically be between 0 and 1.
+
+    Returns:
+        JSONResponse: The processed YOLO inference result for sign detection
+                      as a structured JSON response.
+
+    Raises:
+        HTTPException: If the uploaded file is not a valid image or cannot be processed.
+    """
+    image = Image.open(file.file)
+    res = my_models["sign"](image, conf=conf_threshold, verbose=False)
+    response = process_yolo_result(res[0])
+    return JSONResponse(response)
+
+
 @app.post("/obj_process_plot", tags=["Object Detection"])
 async def obj_process_plot(
     file: UploadFile = File(...),
@@ -231,6 +272,38 @@ async def gun_process_plot(
     """
     image = Image.open(file.file)
     res = my_models["gun"](image, conf=conf_threshold, verbose=False)
+    result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+    buffer = io.BytesIO()
+    result_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
+
+
+@app.post("/sign_process_plot", tags=["Sign Detection"])
+async def sign_process_plot(
+    file: UploadFile = File(...),
+    conf_threshold: float = Form(...),
+):
+    """
+    Perform sign detection on an uploaded image and return a visualized result.
+
+    This endpoint processes an uploaded image using a YOLO sign detection model,
+    applies the specified confidence threshold, and returns the visualized detection
+    result as a streaming image response.
+
+    Args:
+        file (UploadFile): The uploaded image file to be analyzed for sign detection.
+        conf_threshold (float): The confidence threshold for filtering detections.
+                                Values should typically range between 0 and 1.
+
+    Returns:
+        StreamingResponse: An image response containing the visualized sign detection result.
+
+    Raises:
+        HTTPException: If the uploaded file is not a valid image or cannot be processed.
+    """
+    image = Image.open(file.file)
+    res = my_models["sign"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
     result_pil.save(buffer, format="PNG")
@@ -311,6 +384,43 @@ async def gun_process_n_return_result(
     return JSONResponse(response)
 
 
+@app.post("/sign_process_n_return_result", tags=["Sign Detection"])
+async def sign_process_n_return_result(
+    file: UploadFile = File(...),
+    conf_threshold: float = Form(...),
+    return_base64_result: bool = Form,
+):
+    """
+    Perform sign detection on an uploaded image file.
+
+    Args:
+        file (UploadFile): The uploaded image file to be analyzed for sign detection.
+        conf_threshold (float): The confidence threshold for filtering model detections.
+                                Must be between 0 and 1.
+        return_base64_result (bool): A flag to indicate whether to return the result image as a Base64-encoded string.
+
+    Returns:
+        JSONResponse: A JSON object containing:
+                      - Detection results (structured data from YOLO inference).
+                      - Optionally, the result image encoded as a Base64 string, if `return_base64_result` is True.
+
+    Raises:
+        HTTPException: If the uploaded file is not valid or an error occurs during processing.
+    """
+    image = Image.open(file.file)
+    res = my_models["sign"](image, conf=conf_threshold, verbose=False)
+    response = process_yolo_result(res[0])
+    response = {"data": response}
+    if return_base64_result:
+        result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+        buffer = io.BytesIO()
+        result_pil.save(buffer, format="PNG")
+        buffer.seek(0)
+        base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64_result_image"] = base64_image
+    return JSONResponse(response)
+
+
 @app.post("/obj_process_base64", tags=["Object Detection"])
 async def obj_process_base64(request: JSONRequest):
     """
@@ -370,6 +480,38 @@ async def gun_process_base64(request: JSONRequest):
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
     res = my_models["gun"](image, conf=conf_threshold, verbose=False)
+    response = process_yolo_result(res[0])
+    return JSONResponse(response)
+
+
+@app.post("/sign_process_base64", tags=["Sign Detection"])
+async def sign_process_base64(request: JSONRequest):
+    """
+    Process a sign detection request using a base64-encoded image.
+
+    This function accepts a JSON input containing a base64-encoded image and a 
+    confidence threshold. It decodes the image, performs sign detection 
+    using the YOLO model, and processes the results into a structured JSON response.
+
+    Args:
+        request (JSONRequest): A JSON payload containing:
+            - base64_string (str): The base64-encoded image data to be analyzed.
+            - conf_threshold (float): The confidence threshold for sign detection.
+                                      Values should typically range between 0 and 1.
+
+    Returns:
+        JSONResponse: A JSON response with the processed sign detection results. 
+                      The response includes detected sign types, counts, and bounding 
+                      box data.
+
+    Raises:
+        HTTPException: If the base64 string is invalid, the image cannot be processed, 
+                       or required fields are missing in the request.
+    """
+    image_data = base64.b64decode(request.base64_string)
+    image = Image.open(io.BytesIO(image_data))
+    conf_threshold = request.conf_threshold
+    res = my_models["sign"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
     return JSONResponse(response)
 
@@ -435,6 +577,39 @@ async def gun_process_plot_base64(request: JSONRequest):
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
     res = my_models["gun"](image, conf=conf_threshold, verbose=False)
+    result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+    buffer = io.BytesIO()
+    result_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
+
+
+@app.post("/sign_process_plot_base64", tags=["Sign Detection"])
+async def sign_process_plot_base64(request: JSONRequest):
+    """
+    Perform sign detection on a base64-encoded image and return a visualized result.
+
+    This function accepts a JSON input containing a base64-encoded image and a confidence 
+    threshold. It decodes the image, performs sign detection using the YOLO model, 
+    and returns the visualized detection result as a PNG image in a streaming response.
+
+    Args:
+        request (JSONRequest): A JSON payload containing:
+            - base64_string (str): The base64-encoded image data to be analyzed.
+            - conf_threshold (float): The confidence threshold for sign detection.
+
+    Returns:
+        StreamingResponse: A response containing the visualized sign detection result 
+                           as a PNG image.
+
+    Raises:
+        HTTPException: If the base64 string is invalid, the image cannot be processed, 
+                       or required fields are missing in the request.
+    """
+    image_data = base64.b64decode(request.base64_string)
+    image = Image.open(io.BytesIO(image_data))
+    conf_threshold = request.conf_threshold
+    res = my_models["sign"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
     result_pil.save(buffer, format="PNG")
@@ -514,6 +689,42 @@ async def gun_process_n_return_result_base64(request: JSONRequest2):
     return JSONResponse(response)
 
 
+@app.post("/sign_process_n_return_result_base64", tags=["Sign Detection"])
+async def sign_process_n_return_result_base64(request: JSONRequest2):
+    """
+    Perform sign detection on an image provided as a Base64 string.
+
+    Args:
+        request (JSONRequest2): A JSON object containing:
+            - base64_string (str): The Base64-encoded string of the input image.
+            - conf_threshold (float): Confidence threshold for filtering detections.
+            - return_base64_result (bool): Whether to include the result image as a Base64-encoded string in the response.
+
+    Returns:
+        JSONResponse: A JSON object containing:
+            - Detection results from YOLO inference.
+            - Optionally, the result image encoded as a Base64 string if `return_base64_result` is True.
+
+    Raises:
+        HTTPException: If there are issues with the input or processing the image.
+    """
+    image_data = base64.b64decode(request.base64_string)
+    image = Image.open(io.BytesIO(image_data))
+    conf_threshold = request.conf_threshold
+    res = my_models["sign"](image, conf=conf_threshold, verbose=False)
+    response = process_yolo_result(res[0])
+    response = {"data": response}
+    return_base64_result = request.return_base64_result
+    if return_base64_result:
+        result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+        buffer = io.BytesIO()
+        result_pil.save(buffer, format="PNG")
+        buffer.seek(0)
+        base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64_result_image"] = base64_image
+    return JSONResponse(response)
+
+
 @app.post("/select_coco_model", tags=["Model Selection"])
 async def select_coco(
     model_type: YoloType.Pretrained = Form(...)
@@ -572,10 +783,14 @@ async def show_model_types():
     gun_type =  {
         model_type.name: model_type.value for model_type in YoloType.Custom
     }
+    sign_type =  {
+        model_type.name: model_type.value for model_type in YoloType.sign
+    }
     return JSONResponse(
         {
             "Object Detection Models": coco_types,
-            "Firearm Classification Models": gun_type
+            "Firearm Classification Models": gun_type,
+            "Sign Detection Models": sign_type,
         }
     )
 
