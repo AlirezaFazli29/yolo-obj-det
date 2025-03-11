@@ -19,6 +19,7 @@ from utils import (
 )
 from contextlib import asynccontextmanager
 from PIL import Image
+import numpy as np
 import base64
 import uvicorn
 import io
@@ -242,9 +243,9 @@ async def obj_process_plot(
     res = my_models["coco"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
-    result_pil.save(buffer, format="PNG")
+    result_pil.save(buffer, format="JPEG")
     buffer.seek(0)
-    return StreamingResponse(buffer, media_type="image/png")
+    return StreamingResponse(buffer, media_type="image/jpeg")
 
 
 @app.post("/gun_process_plot", tags=["Firearm Classification"])
@@ -274,9 +275,9 @@ async def gun_process_plot(
     res = my_models["gun"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
-    result_pil.save(buffer, format="PNG")
+    result_pil.save(buffer, format="JPEG")
     buffer.seek(0)
-    return StreamingResponse(buffer, media_type="image/png")
+    return StreamingResponse(buffer, media_type="image/jpeg")
 
 
 @app.post("/sign_process_plot", tags=["Sign Detection"])
@@ -306,41 +307,54 @@ async def sign_process_plot(
     res = my_models["sign"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
-    result_pil.save(buffer, format="PNG")
+    result_pil.save(buffer, format="JPEG")
     buffer.seek(0)
-    return StreamingResponse(buffer, media_type="image/png")
+    return StreamingResponse(buffer, media_type="image/jpeg")
 
 
 @app.post("/obj_process_n_return_result", tags=["Object Detection"])
 async def obj_process_n_return_result(
     file: UploadFile = File(...),
     conf_threshold: float = Form(...),
-    return_base64_result: bool = Form,
+    return_base64_result: bool = Form(...),
+    return_base64_cropped_objects: bool = Form(...),
 ):
     """
-    Perform object detection on an uploaded image file with an option to return the result as a Base64-encoded image.
+    Perform object detection on an uploaded image file using a YOLO model, with options to return results in JSON or Base64 format.
 
     Args:
-        file (UploadFile): The uploaded image file to be processed for object detection.
-        conf_threshold (float): The confidence threshold for the YOLO model to filter detections.
-                                Values should typically be between 0 and 1.
-        return_base64 (bool): Boolean flag indicating whether to return the result image as a Base64 string.
+        file (UploadFile): The uploaded image file to process.
+        conf_threshold (float): The confidence threshold for filtering detected objects.
+                                Must be a value between 0 and 1.
+        return_base64_result (bool): If True, includes the full detection result as a Base64-encoded image.
+        return_base64_cropped_objects (bool): If True, includes cropped detected objects as Base64-encoded images.
 
     Returns:
-        JSONResponse or StreamingResponse: The processed YOLO inference result as a structured JSON response, 
-                                           or as a JSON response containing the Base64-encoded image if requested.
+        JSONResponse: A JSON object containing:
+            - `data`: The processed object detection results, including detected objects and their bounding boxes.
+            - `origin_image_size`: The original image dimensions (`x` and `y`).
+            - `base64_result_image` (optional): The full detection image encoded in Base64, if `return_base64_result` is True.
 
     Raises:
-        HTTPException: If the uploaded file is not a valid image or cannot be processed.
+        HTTPException: If the uploaded file is invalid or cannot be processed.
     """
     image = Image.open(file.file)
     res = my_models["coco"](image, conf=conf_threshold, verbose=False)
-    response = process_yolo_result(res[0])
-    response = {"data": response}
+    response = process_yolo_result(
+        result=res[0],
+        return_base64_cropped_objects=return_base64_cropped_objects
+    )
+    response = {
+        "data": response,
+        "origin_image_size": {
+            "x": res[0].orig_shape[1],
+            "y": res[0].orig_shape[0],
+        }
+    }
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
-        result_pil.save(buffer, format="PNG")
+        result_pil.save(buffer, format="JPEG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
@@ -351,33 +365,45 @@ async def obj_process_n_return_result(
 async def gun_process_n_return_result(
     file: UploadFile = File(...),
     conf_threshold: float = Form(...),
-    return_base64_result: bool = Form,
+    return_base64_result: bool = Form(),
+    return_base64_cropped_objects: bool = Form(...),
 ):
     """
-    Perform firearm classification on an uploaded image file.
+    Perform firearm classification on an uploaded image using a YOLO model, with options to return results in JSON or Base64 format.
 
     Args:
-        file (UploadFile): The uploaded image file to be classified.
-        conf_threshold (float): The confidence threshold for filtering model detections.
-                                Must be between 0 and 1.
-        return_base64_result (bool): A flag to indicate whether to return the result image as a Base64-encoded string.
+        file (UploadFile): The uploaded image file to process.
+        conf_threshold (float): The confidence threshold for filtering detected firearms.
+                                Must be a value between 0 and 1.
+        return_base64_result (bool): If True, includes the full detection result as a Base64-encoded image.
+        return_base64_cropped_objects (bool): If True, includes cropped detected firearm objects as Base64-encoded images.
 
     Returns:
         JSONResponse: A JSON object containing:
-                      - Detection results (structured data from YOLO inference).
-                      - Optionally, the result image encoded as a Base64 string, if `return_base64_result` is True.
+            - `data`: The processed firearm classification results, including detected objects and their bounding boxes.
+            - `origin_image_size`: The original image dimensions (`x` and `y`).
+            - `base64_result_image` (optional): The full detection image encoded in Base64, if `return_base64_result` is True.
 
     Raises:
-        HTTPException: If the uploaded file is not valid or an error occurs during processing.
+        HTTPException: If the uploaded file is invalid or cannot be processed.
     """
     image = Image.open(file.file)
     res = my_models["gun"](image, conf=conf_threshold, verbose=False)
-    response = process_yolo_result(res[0])
-    response = {"data": response}
+    response = process_yolo_result(
+        result=res[0],
+        return_base64_cropped_objects=return_base64_cropped_objects
+    )
+    response = {
+        "data": response,
+        "origin_image_size": {
+            "x": res[0].orig_shape[1],
+            "y": res[0].orig_shape[0],
+        }
+    }
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
-        result_pil.save(buffer, format="PNG")
+        result_pil.save(buffer, format="JPEG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
@@ -388,33 +414,45 @@ async def gun_process_n_return_result(
 async def sign_process_n_return_result(
     file: UploadFile = File(...),
     conf_threshold: float = Form(...),
-    return_base64_result: bool = Form,
+    return_base64_result: bool = Form(...),
+    return_base64_cropped_objects: bool = Form(...),
 ):
     """
-    Perform sign detection on an uploaded image file.
+    Perform sign detection on an uploaded image using a YOLO model, with options to return results in JSON or Base64 format.
 
     Args:
         file (UploadFile): The uploaded image file to be analyzed for sign detection.
-        conf_threshold (float): The confidence threshold for filtering model detections.
-                                Must be between 0 and 1.
-        return_base64_result (bool): A flag to indicate whether to return the result image as a Base64-encoded string.
+        conf_threshold (float): The confidence threshold for filtering detected signs.
+                                Must be a value between 0 and 1.
+        return_base64_result (bool): If True, includes the full detection result as a Base64-encoded image.
+        return_base64_cropped_objects (bool): If True, includes cropped detected sign objects as Base64-encoded images.
 
     Returns:
         JSONResponse: A JSON object containing:
-                      - Detection results (structured data from YOLO inference).
-                      - Optionally, the result image encoded as a Base64 string, if `return_base64_result` is True.
+            - `data`: The processed sign detection results, including detected objects and their bounding boxes.
+            - `origin_image_size`: The original image dimensions (`x` and `y`).
+            - `base64_result_image` (optional): The full detection image encoded in Base64, if `return_base64_result` is True.
 
     Raises:
-        HTTPException: If the uploaded file is not valid or an error occurs during processing.
+        HTTPException: If the uploaded file is invalid or cannot be processed.
     """
     image = Image.open(file.file)
     res = my_models["sign"](image, conf=conf_threshold, verbose=False)
-    response = process_yolo_result(res[0])
-    response = {"data": response}
+    response = process_yolo_result(
+        result=res[0],
+        return_base64_cropped_objects=return_base64_cropped_objects
+    )
+    response = {
+        "data": response,
+        "origin_image_size": {
+            "x": res[0].orig_shape[1],
+            "y": res[0].orig_shape[0],
+        }
+    }
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
-        result_pil.save(buffer, format="PNG")
+        result_pil.save(buffer, format="JPEG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
@@ -519,12 +557,12 @@ async def sign_process_base64(request: JSONRequest):
 @app.post("/obj_process_plot_base64", tags=["Object Detection"])
 async def obj_process_plot_base64(request: JSONRequest):
     """
-    Process an object detection request and return a plotted image as a PNG.
+    Process an object detection request and return a plotted image as a JPEG.
 
     This endpoint accepts a JSON input containing a base64-encoded image and a 
     confidence threshold. It decodes the image, performs object detection using 
     the YOLO model, plots the detection results on the image, and returns the 
-    plotted image as a streaming response in PNG format.
+    plotted image as a streaming response in JPEG format.
 
     Args:
         request (JSONRequest): A JSON payload containing:
@@ -533,7 +571,7 @@ async def obj_process_plot_base64(request: JSONRequest):
 
     Returns:
         StreamingResponse: A streaming response containing the plotted image in 
-                           PNG format. The image includes bounding boxes and 
+                           JPEG format. The image includes bounding boxes and 
                            annotations for detected objects.
         
     Raises:
@@ -546,9 +584,9 @@ async def obj_process_plot_base64(request: JSONRequest):
     res = my_models["coco"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
-    result_pil.save(buffer, format="PNG")
+    result_pil.save(buffer, format="JPEG")
     buffer.seek(0)
-    return StreamingResponse(buffer, media_type="image/png")
+    return StreamingResponse(buffer, media_type="image/jpeg")
 
 
 @app.post("/gun_process_plot_base64", tags=["Firearm Classification"])
@@ -558,7 +596,7 @@ async def gun_process_plot_base64(request: JSONRequest):
 
     This function accepts a JSON input containing a base64-encoded image and a confidence 
     threshold. It decodes the image, performs firearm classification using the YOLO model, 
-    and returns the visualized detection result as a PNG image in a streaming response.
+    and returns the visualized detection result as a JPEG image in a streaming response.
 
     Args:
         request (JSONRequest): A JSON payload containing:
@@ -567,7 +605,7 @@ async def gun_process_plot_base64(request: JSONRequest):
 
     Returns:
         StreamingResponse: A response containing the visualized firearm detection result 
-                           as a PNG image.
+                           as a JPEG image.
 
     Raises:
         HTTPException: If the base64 string is invalid, the image cannot be processed, 
@@ -579,9 +617,9 @@ async def gun_process_plot_base64(request: JSONRequest):
     res = my_models["gun"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
-    result_pil.save(buffer, format="PNG")
+    result_pil.save(buffer, format="JPEG")
     buffer.seek(0)
-    return StreamingResponse(buffer, media_type="image/png")
+    return StreamingResponse(buffer, media_type="image/jpeg")
 
 
 @app.post("/sign_process_plot_base64", tags=["Sign Detection"])
@@ -591,7 +629,7 @@ async def sign_process_plot_base64(request: JSONRequest):
 
     This function accepts a JSON input containing a base64-encoded image and a confidence 
     threshold. It decodes the image, performs sign detection using the YOLO model, 
-    and returns the visualized detection result as a PNG image in a streaming response.
+    and returns the visualized detection result as a JPEG image in a streaming response.
 
     Args:
         request (JSONRequest): A JSON payload containing:
@@ -600,7 +638,7 @@ async def sign_process_plot_base64(request: JSONRequest):
 
     Returns:
         StreamingResponse: A response containing the visualized sign detection result 
-                           as a PNG image.
+                           as a JPEG image.
 
     Raises:
         HTTPException: If the base64 string is invalid, the image cannot be processed, 
@@ -612,41 +650,53 @@ async def sign_process_plot_base64(request: JSONRequest):
     res = my_models["sign"](image, conf=conf_threshold, verbose=False)
     result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
     buffer = io.BytesIO()
-    result_pil.save(buffer, format="PNG")
+    result_pil.save(buffer, format="JPEG")
     buffer.seek(0)
-    return StreamingResponse(buffer, media_type="image/png")
+    return StreamingResponse(buffer, media_type="image/jpeg")
 
 
 @app.post("/obj_process_n_return_result_base64", tags=["Object Detection"])
 async def obj_process_n_return_result_base64(request: JSONRequest2):
     """
-    Perform object detection on an image provided as a Base64 string.
+    Perform object detection on an image provided as a Base64 string using a YOLO model.
 
     Args:
         request (JSONRequest2): A JSON object containing:
-            - base64_string (str): The Base64-encoded string of the input image.
-            - conf_threshold (float): Confidence threshold for filtering detections.
-            - return_base64_result (bool): Whether to include the result image as a Base64-encoded string in the response.
+            - `base64_string` (str): The Base64-encoded string representing the input image.
+            - `conf_threshold` (float): The confidence threshold for filtering detections (between 0 and 1).
+            - `return_base64_result` (bool): Whether to include the processed result image as a Base64-encoded string.
+            - `return_base64_cropped_objects` (bool): Whether to return cropped detected objects as Base64 strings.
 
     Returns:
         JSONResponse: A JSON object containing:
-            - Detection results from YOLO inference.
-            - Optionally, the result image encoded as a Base64 string if `return_base64_result` is True.
+            - `data`: The structured detection results, including detected objects and their bounding boxes.
+            - `origin_image_size`: The original image dimensions (`x` and `y`).
+            - `base64_result_image` (optional): The full processed image encoded in Base64, if `return_base64_result` is True.
 
     Raises:
-        HTTPException: If there are issues with the input or processing the image.
+        HTTPException: If there are issues with the input Base64 string or processing the image.
     """
     image_data = base64.b64decode(request.base64_string)
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
-    res = my_models["coco"](image, conf=conf_threshold, verbose=False)
-    response = process_yolo_result(res[0])
-    response = {"data": response}
+    return_base64_cropped_objects = request.return_base64_cropped_objects
     return_base64_result = request.return_base64_result
+    res = my_models["coco"](image, conf=conf_threshold, verbose=False)
+    response = process_yolo_result(
+        result=res[0],
+        return_base64_cropped_objects=return_base64_cropped_objects
+    )
+    response = {
+        "data": response,
+        "origin_image_size": {
+            "x": res[0].orig_shape[1],
+            "y": res[0].orig_shape[0],
+        }
+    }
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
-        result_pil.save(buffer, format="PNG")
+        result_pil.save(buffer, format="JPEG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
@@ -656,33 +706,45 @@ async def obj_process_n_return_result_base64(request: JSONRequest2):
 @app.post("/gun_process_n_return_result_base64", tags=["Firearm Classification"])
 async def gun_process_n_return_result_base64(request: JSONRequest2):
     """
-    Perform firearm classification on an image provided as a Base64 string.
+    Perform firearm classification on an image provided as a Base64 string using a YOLO model.
 
     Args:
         request (JSONRequest2): A JSON object containing:
-            - base64_string (str): The Base64-encoded string of the input image.
-            - conf_threshold (float): Confidence threshold for filtering detections.
-            - return_base64_result (bool): Whether to include the result image as a Base64-encoded string in the response.
+            - `base64_string` (str): The Base64-encoded string representing the input image.
+            - `conf_threshold` (float): The confidence threshold for filtering detections (between 0 and 1).
+            - `return_base64_result` (bool): Whether to include the processed result image as a Base64-encoded string.
+            - `return_base64_cropped_objects` (bool): Whether to return cropped detected objects as Base64 strings.
 
     Returns:
         JSONResponse: A JSON object containing:
-            - Detection results from YOLO inference.
-            - Optionally, the result image encoded as a Base64 string if `return_base64_result` is True.
+            - `data`: The structured detection results, including detected objects and their bounding boxes.
+            - `origin_image_size`: The original image dimensions (`x` and `y`).
+            - `base64_result_image` (optional): The processed image encoded in Base64, if `return_base64_result` is True.
 
     Raises:
-        HTTPException: If there are issues with the input or processing the image.
+        HTTPException: If there are issues with the input Base64 string or processing the image.
     """
     image_data = base64.b64decode(request.base64_string)
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
-    res = my_models["gun"](image, conf=conf_threshold, verbose=False)
-    response = process_yolo_result(res[0])
-    response = {"data": response}
+    return_base64_cropped_objects = request.return_base64_cropped_objects
     return_base64_result = request.return_base64_result
+    res = my_models["gun"](image, conf=conf_threshold, verbose=False)
+    response = process_yolo_result(
+        result=res[0],
+        return_base64_cropped_objects=return_base64_cropped_objects
+    )
+    response = {
+        "data": response,
+        "origin_image_size": {
+            "x": res[0].orig_shape[1],
+            "y": res[0].orig_shape[0],
+        }
+    }
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
-        result_pil.save(buffer, format="PNG")
+        result_pil.save(buffer, format="JPEG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
@@ -692,37 +754,69 @@ async def gun_process_n_return_result_base64(request: JSONRequest2):
 @app.post("/sign_process_n_return_result_base64", tags=["Sign Detection"])
 async def sign_process_n_return_result_base64(request: JSONRequest2):
     """
-    Perform sign detection on an image provided as a Base64 string.
+    Perform sign detection on an image provided as a Base64 string using a YOLO model.
 
     Args:
         request (JSONRequest2): A JSON object containing:
-            - base64_string (str): The Base64-encoded string of the input image.
-            - conf_threshold (float): Confidence threshold for filtering detections.
-            - return_base64_result (bool): Whether to include the result image as a Base64-encoded string in the response.
+            - `base64_string` (str): The Base64-encoded string representing the input image.
+            - `conf_threshold` (float): The confidence threshold for filtering detections (between 0 and 1).
+            - `return_base64_result` (bool): Whether to include the processed result image as a Base64-encoded string.
+            - `return_base64_cropped_objects` (bool): Whether to return cropped detected objects as Base64 strings.
 
     Returns:
         JSONResponse: A JSON object containing:
-            - Detection results from YOLO inference.
-            - Optionally, the result image encoded as a Base64 string if `return_base64_result` is True.
+            - `data`: The structured detection results, including detected signs and their bounding boxes.
+            - `origin_image_size`: The original image dimensions (`x` and `y`).
+            - `base64_result_image` (optional): The processed image encoded in Base64, if `return_base64_result` is True.
 
     Raises:
-        HTTPException: If there are issues with the input or processing the image.
+        HTTPException: If there are issues with the input Base64 string or processing the image.
     """
     image_data = base64.b64decode(request.base64_string)
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
-    res = my_models["sign"](image, conf=conf_threshold, verbose=False)
-    response = process_yolo_result(res[0])
-    response = {"data": response}
+    return_base64_cropped_objects = request.return_base64_cropped_objects
     return_base64_result = request.return_base64_result
+    res = my_models["sign"](image, conf=conf_threshold, verbose=False)
+    response = process_yolo_result(
+        result=res[0],
+        return_base64_cropped_objects=return_base64_cropped_objects
+    )
+    response = {
+        "data": response,
+        "origin_image_size": {
+            "x": res[0].orig_shape[1],
+            "y": res[0].orig_shape[0],
+        }
+    }
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
-        result_pil.save(buffer, format="PNG")
+        result_pil.save(buffer, format="JPEG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
     return JSONResponse(response)
+
+
+@app.get("/show_model_types", tags=["Model Selection"])
+async def show_model_types():
+    coco_types = {
+        model_type.name: model_type.value for model_type in YoloType.Pretrained
+    }
+    gun_type =  {
+        model_type.name: model_type.value for model_type in YoloType.Custom
+    }
+    sign_type =  {
+        model_type.name: model_type.value for model_type in YoloType.sign
+    }
+    return JSONResponse(
+        {
+            "Object Detection Models": coco_types,
+            "Firearm Classification Models": gun_type,
+            "Sign Detection Models": sign_type,
+        }
+    )
 
 
 @app.post("/select_coco_model", tags=["Model Selection"])
@@ -772,26 +866,6 @@ async def select_gun(
     my_models["gun"] = YOLO(gun_pth)
     return JSONResponse(
         {"message": f"Model {model_type.name} is selected"}
-    )
-
-
-@app.get("/show_model_types", tags=["Model Selection"])
-async def show_model_types():
-    coco_types = {
-        model_type.name: model_type.value for model_type in YoloType.Pretrained
-    }
-    gun_type =  {
-        model_type.name: model_type.value for model_type in YoloType.Custom
-    }
-    sign_type =  {
-        model_type.name: model_type.value for model_type in YoloType.sign
-    }
-    return JSONResponse(
-        {
-            "Object Detection Models": coco_types,
-            "Firearm Classification Models": gun_type,
-            "Sign Detection Models": sign_type,
-        }
     )
 
 
