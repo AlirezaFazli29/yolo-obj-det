@@ -9,9 +9,9 @@ from fastapi.responses import (
     JSONResponse,
     StreamingResponse,
 )
-from model_handler import YoloType
+from .model_handler import YoloType
 from ultralytics import YOLO
-from utils import (
+from .utils import (
     process_yolo_result,
     JSONRequest,
     JSONRequest2,

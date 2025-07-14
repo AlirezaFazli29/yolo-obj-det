@@ -62,7 +62,7 @@ def process_yolo_result(
             grouped[obj_name]['count'] += 1
         return list(grouped.values())
     else: 
-        return [[]]
+        return []
 
 
 class JSONRequest(BaseModel):
