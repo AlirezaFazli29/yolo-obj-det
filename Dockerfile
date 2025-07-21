@@ -11,6 +11,11 @@ COPY app/ .
 COPY requirements.txt .
 COPY yolo11n.pt .
 
+RUN apt-get update && \
+    apt-get install -y libgl1 libglib2.0-0 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt --timeout=1000 && \
     rm -fr requirements.txt /etc/pip.conf
