@@ -24,10 +24,12 @@ class YoloType():
         yolo11m = "yolo11m.pt"
         yolo11l = "yolo11l.pt"
         yolo11x = "yolo11x.pt"
+        yolo12n = "yolo12n.pt"
+        yolo12s = "yolo12s.pt"
+        yolo12m = "yolo12m.pt"
+        yolo12l = "yolo12l.pt"
+        yolo12x = "yolo12x.pt"
 
     class Custom(Enum):
         Firearm_last = "models/last_Firearm.pt"
         Firearm_best = "models/best_Firearm.pt" 
-
-    class sign(Enum):
-        sign_model = "models/sign_model.pt"
