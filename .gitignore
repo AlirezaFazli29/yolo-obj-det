@@ -29,6 +29,7 @@ runs/
 __pycache__/
 *.pyc
 *.pyo
+*.ipynb
 
 # Ignore IDE/editor config files (e.g., VSCode, PyCharm, etc.)
 .vscode/
