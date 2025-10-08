@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
     Yields:
         None: Allows the application to use the models while the context is active.
     """
-    yolo_coco = YOLO(YoloType.Pretrained.yolo11n.value)
+    yolo_coco = YOLO(YoloType.Pretrained.yolo12n.value)
     my_models["coco"] = yolo_coco
     model_locks["coco"] = asyncio.Lock()
 
@@ -174,7 +174,7 @@ async def obj_process(
         HTTPException: If the uploaded file is not a valid image.
     """
     try:
-        image = Image.open(file.file)
+        image = await asyncio.to_thread(lambda: Image.open(file.file))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file")
     
@@ -215,7 +215,7 @@ async def gun_process(
         HTTPException: If the uploaded file is not a valid image or cannot be processed.
     """
     try:
-        image = Image.open(file.file)
+        image = await asyncio.to_thread(lambda: Image.open(file.file))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file")
     
@@ -252,7 +252,7 @@ async def obj_process_plot(
         HTTPException: If the uploaded file is invalid or cannot be processed.
     """
     try:
-        image = Image.open(file.file)
+        image = await asyncio.to_thread(lambda: Image.open(file.file))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file")
     
@@ -293,7 +293,7 @@ async def gun_process_plot(
         HTTPException: If the uploaded file is invalid or cannot be processed.
     """
     try:
-        image = Image.open(file.file)
+        image = await asyncio.to_thread(lambda: Image.open(file.file))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file")
     
@@ -346,7 +346,7 @@ async def obj_process_n_return_result(
         HTTPException: If the uploaded file is invalid or cannot be processed.
     """
     try:
-        image = Image.open(file.file)
+        image = await asyncio.to_thread(lambda: Image.open(file.file))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file")
     
@@ -415,7 +415,7 @@ async def gun_process_n_return_result(
         HTTPException: If the uploaded file is invalid or cannot be processed.
     """
     try:
-        image = Image.open(file.file)
+        image = await asyncio.to_thread(lambda: Image.open(file.file))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file")
     
@@ -798,7 +798,7 @@ async def select_coco(
         del my_models["coco"]
         gc.collect()
         empty_cache()
-        my_models["coco"] = YOLO(model_type.value)
+        my_models["coco"] = await asyncio.to_thread(lambda: YOLO(model_type.value))
     return JSONResponse(
         {"message": f"Model {model_type.name} is selected"}
     )
@@ -828,7 +828,7 @@ async def select_gun(
         del my_models["gun"]
         gc.collect()
         empty_cache()
-        my_models["gun"] = YOLO(gun_pth)
+        my_models["gun"] = await asyncio.to_thread(lambda: YOLO(gun_pth))
     return JSONResponse(
         {"message": f"Model {model_type.name} is selected"}
     )
@@ -855,7 +855,7 @@ async def select_coco_model_json_request(
         del my_models["coco"]
         gc.collect()
         empty_cache()
-        my_models["coco"] = YOLO(request.model_type)
+        my_models["coco"] = await asyncio.to_thread(lambda: YOLO(request.model_type))
     return JSONResponse(
         {"message": f"Model from path {request.model_type} is selected"}
     )
@@ -884,7 +884,7 @@ async def select_gun_model_json_request(
         del my_models["gun"]
         gc.collect()
         empty_cache()
-        my_models["gun"] = YOLO(gun_pth)
+        my_models["gun"] = await asyncio.to_thread(lambda: YOLO(gun_pth))
     return JSONResponse(
         {"message": f"Model from path {request.model_type} is selected"}
     )
