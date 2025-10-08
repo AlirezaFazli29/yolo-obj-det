@@ -5,9 +5,8 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY app/ .
+COPY . .
 COPY requirements.txt .
-COPY yolo12n.pt .
 
 RUN apt-get update && \
     apt-get install -y libgl1 libglib2.0-0 && \
@@ -19,4 +18,4 @@ RUN pip install --upgrade pip && \
 
 EXPOSE 8080
 
-CMD [ "python", "-m", "main" ]
+CMD [ "python3", "-m", "app.main" ]
