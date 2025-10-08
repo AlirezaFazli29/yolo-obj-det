@@ -3,7 +3,7 @@ FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY pip.conf /etc/pip.conf
+# COPY pip.conf /etc/pip.conf
 
 WORKDIR /app
 
@@ -17,8 +17,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt --timeout=1000 && \
-    rm -fr requirements.txt /etc/pip.conf
+    pip install --no-cache-dir -r requirements.txt --timeout=1000 && 
+    # rm -fr requirements.txt /etc/pip.conf
 
 EXPOSE 8080
 
